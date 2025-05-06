@@ -129,3 +129,5 @@ multirun/
 *.tar
 *.pem
 paper
+
+examples/*
