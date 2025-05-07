@@ -10,29 +10,44 @@ from src import utils, modules
 
 
 @torch.no_grad()
-def evaluate(args):
+def load_model(use_cpu, gpu, background_path):
+    """
+    Load the GeoLocModel, preprocessing pipeline, and background collection.
+    """
     print("\n> loading model")
     model = modules.GeoLocModel(pretrained=True).eval()
-    if not args.use_cpu:
-        model = model.to(args.gpu)
+    if not use_cpu:
+        model = model.to(gpu)
     transform = utils.Preprocessing("inference", backbone="efficientnet")
-
     mus = model.cls_head.mus.t().cpu().numpy()
     cells_assignments = pickle.load(open("data/cells_assignments.pkl", "rb"))
 
     print("\n> loading background collection")
-    with h5py.File(args.background, "r", driver=None) as hdf5_file:
+    with h5py.File(background_path, "r", driver=None) as hdf5_file:
         back_col_emb = hdf5_file["features"][:, :].T.astype(np.float32)
         back_col_cells = hdf5_file["labels"][:, :]
     print("Background collection features:", back_col_emb.T.shape)
     print("Background collection cells:", back_col_cells.shape)
 
+    return model, transform, mus, cells_assignments, back_col_emb, back_col_cells
+
+
+@torch.no_grad()
+def run_evaluation(
+    model, transform, mus, cells_assignments, back_col_emb, back_col_cells, args, image=None, image_url=None
+):
+    """
+    Run the evaluation process using the loaded model, preprocessing pipeline, and background collection.
+    """
     print("\n> loading image")
-    if args.image_path is None:
-        img = requests.get(args.image_url, stream=True).raw
+    if image is not None:
+        query_image = Image.open(image).convert("RGB")
+    elif image_url is not None:
+        img = requests.get(image_url, stream=True).raw
+        query_image = Image.open(img).convert("RGB")
     else:
-        img = args.image_path
-    query_image = Image.open(img).convert("RGB")
+        raise ValueError("Either image or image_url must be provided")
+
     query_tensor = transform(query_image)
     print("Image tensor shape:", query_tensor.numpy().shape)
 
@@ -61,6 +76,8 @@ def evaluate(args):
     print("Prediction (Lat,Lon): ({:.4f}, {:.4f})".format(*pr))
     print("Confidence: {:.1f}%".format(conf[args.conf_scale] * 100))
 
+    return {"prediction": {"latitude": pr[0], "longitude": pr[1]}, "confidence": conf[args.conf_scale] * 100}
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
@@ -79,4 +96,17 @@ if __name__ == "__main__":
     if args.image_path is None and args.image_url is None:
         raise Exception("Please provide an image path or URL as input")
 
-    evaluate(args)
+    model, transform, mus, cells_assignments, back_col_emb, back_col_cells = load_model(
+        args.use_cpu, args.gpu, args.background
+    )
+    run_evaluation(
+        model,
+        transform,
+        mus,
+        cells_assignments,
+        back_col_emb,
+        back_col_cells,
+        args,
+        image=args.image_path,
+        image_url=args.image_url,
+    )
