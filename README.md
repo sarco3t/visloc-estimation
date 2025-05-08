@@ -31,7 +31,7 @@ pip install -r requirements.txt
 
 ### Background collection
 * Download and store the features of the background collection needed for SwC inference from 
-[here](https://mever.iti.gr/visloc/back_coll_features.hdf5) or by
+[here](https://mever.iti.gr/visloc/back_coll_features.hdf5) or by and put it in ./models folder.
 ```bash
 wget https://mever.iti.gr/visloc/back_coll_features.hdf5
 ```
@@ -66,6 +66,9 @@ the web
 python inference.py --image_url 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/200px-Tour_Eiffel_Wikimedia_Commons.jpg'
 ```
 
+## Web interface
+
+* Run the `entrypoint.sh` 
 ## Citation
 If you use this code for your research, please consider citing our papers:
 ```bibtex
